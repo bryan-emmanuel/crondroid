@@ -62,11 +62,6 @@ public class Daemon extends Service {
          * installed before attempting to trigger it this will also
          * provide an opportunity to cleanup activities that we're
          * uninstalled but left configured in crondroid
-         * 
-         * 
-         * NEED TO START OUT ON A COMMON DENOMINATOR TIME
-         * 
-         * 
          */
         int now = (int) System.currentTimeMillis();
         now = (int) Math.floor(now / 1000);
@@ -95,7 +90,15 @@ public class Daemon extends Service {
 						// where's the activity?
 					}}
 				c.moveToNext();}
-			mWakeTime += now;}
+			/*
+			 * correct the time
+			 */
+			if ((now % mWakeTime) != 0) {
+				mWakeTime += now - (now % mWakeTime);
+				Log.v("Crondroid.Daemon", "corrected wake " + mWakeTime);}
+			else {
+				mWakeTime += now;
+				Log.v("Crondroid.Daemon", "normal wake " + mWakeTime);}}
 		c.close();}
     
     @Override
