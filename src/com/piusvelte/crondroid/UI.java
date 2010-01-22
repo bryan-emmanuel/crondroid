@@ -23,13 +23,22 @@ package com.piusvelte.crondroid;
 import java.util.ArrayList;
 import java.util.List;
 
+import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.ListActivity;
+import android.app.AlertDialog.Builder;
+import android.content.ActivityNotFoundException;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.IBinder;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -41,13 +50,16 @@ import android.widget.Toast;
 public class UI extends ListActivity {
 	public static final int REFRESH_ID = Menu.FIRST;
 	public static final int ABOUT_ID = Menu.FIRST + 1;
-	public static final int INTERVAL_RESULT = 1;
-	public static final int CONFIGURE_RESULT = 2;
+	public static final int CONFIGURE_RESULT = 1;
 	private DatabaseManager mDatabaseManager;
 	private String mPackage;
 	private String mTrigger;
 	private String mConfigure;
+	private String mLabel;
 	private int mInterval;
+	private AlertDialog mAlertDialog;
+	private DaemonConnection mDaemonConnection;
+	private IDaemon mIDaemon;
 	
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -77,55 +89,96 @@ public class UI extends ListActivity {
                 dialog.show();
         		return true;}
         return super.onOptionsItemSelected(item);}
-    
-    @Override
-    public void onPause() {
-    	super.onPause();}
-    
+        
     @Override
     public void onResume() {
     	super.onResume();
     	if (mDatabaseManager == null) {
     		mDatabaseManager = new DatabaseManager(this);
     		mDatabaseManager.open();}
-    	listActivities();}
+    	listActivities();
+    	if (mDaemonConnection == null) {
+        	Log.v("Crondroid.UI", "bind");
+    		mDaemonConnection = new DaemonConnection();
+    		bindService(new Intent(this, Daemon.class), mDaemonConnection, Context.BIND_AUTO_CREATE);}}
 
 	@Override
-	protected void onDestroy() {
-		super.onDestroy();
+    public void onPause() {
+    	super.onPause();
     	if (mDatabaseManager != null) {
     		mDatabaseManager.close();
-    		mDatabaseManager = null;}}
+    		mDatabaseManager = null;}
+    	if (mDaemonConnection != null) {
+        	Log.v("Crondroid.UI", "unbind");
+    		if (mIDaemon != null) {
+    			mIDaemon = null;}
+    		unbindService(mDaemonConnection);
+    		mDaemonConnection = null;}
+    	stopService(new Intent(this, Daemon.class));}
 
     @Override
     protected void onListItemClick(ListView list, View view, int position, long id) {
     	super.onListItemClick(list, view, position, id);
-    	mPackage = ((ActivityListItem) getListView().getItemAtPosition(position)).getPkg();
-		mTrigger = ((ActivityListItem) getListView().getItemAtPosition(position)).getTrigger();
-		mConfigure = ((ActivityListItem) getListView().getItemAtPosition(position)).getConfigure();
-		// if missing elements, toast an error
-		Toast.makeText(UI.this, "error", Toast.LENGTH_LONG).show();
-		// get interval from database
-    	Intent i = new Intent(this, SetInterval.class);
-    	i.putExtra(DatabaseManager.ACTIVITY_INTERVAL, mDatabaseManager.getInterval(mPackage));
-    	startActivityForResult(i, INTERVAL_RESULT);}
+    	mPackage = ((ActivityListItem) list.getItemAtPosition(position)).getPkg();
+    	Log.v("Crondroid.UI", "package " + mPackage);
+		mTrigger = ((ActivityListItem) list.getItemAtPosition(position)).getTrigger();
+    	Log.v("Crondroid.UI", "trigger " + mTrigger);
+		mConfigure = ((ActivityListItem) list.getItemAtPosition(position)).getConfigure();
+    	Log.v("Crondroid.UI", "configure " + mConfigure);
+		mLabel = ((ActivityListItem) list.getItemAtPosition(position)).getLabel();
+    	Log.v("Crondroid.UI", "label " + mLabel);
+		mInterval = mDatabaseManager.getInterval(mPackage);
+    	Log.v("Crondroid.UI", "interval from db " + mInterval);
+		if ((mPackage != "") && (mTrigger != "") && (mConfigure != "")) {
+			String[] intervals = getResources().getStringArray(R.array.interval_values);
+			int which = 0;
+			for (int i = 0; i < intervals.length; i++) {
+				if (mInterval == Integer.parseInt(intervals[i])) {
+					which = i;
+					break;}}
+			Builder b = new AlertDialog.Builder(this);
+			b.setSingleChoiceItems(
+					R.array.interval_entries,
+					which,
+					new DialogInterface.OnClickListener() {
+						@Override
+						public void onClick(DialogInterface dialog, int which) {
+							mAlertDialog.dismiss();
+							mInterval = Integer.parseInt(getResources().getStringArray(R.array.interval_values)[which]);
+							configure();}});
+			mAlertDialog = b.create();
+			mAlertDialog.show();}
+		else {
+			Toast.makeText(UI.this, getString(R.string.error_communication) + mLabel, Toast.LENGTH_LONG).show();}}
+    
+    private void configure() {
+		Log.v("Crondroid.UI", "interval set " + mInterval);
+		// confirm this with the activity
+		Intent i = new Intent(Daemon.ACTION_CONFIGURE);
+		i.setComponent(new ComponentName(mPackage, mConfigure));
+		i.putExtra(Daemon.ACTION_INTERVAL, mInterval);
+		try {
+			startActivityForResult(i, CONFIGURE_RESULT);}
+		catch (ActivityNotFoundException e) {
+			Toast.makeText(UI.this, getString(R.string.error_communication) + mLabel, Toast.LENGTH_LONG).show();}}
     
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
     	switch (requestCode) {
-    		case INTERVAL_RESULT:
-    			if (resultCode == RESULT_OK) {
-    				mInterval = data.getIntExtra(DatabaseManager.ACTIVITY_INTERVAL, 0);
-    				// confirm this with the activity
-    				startActivityForResult(new Intent(Daemon.ACTION_CONFIGURE).setPackage(mPackage), CONFIGURE_RESULT);}
-    			else {
-    				Toast.makeText(UI.this, "error", Toast.LENGTH_LONG).show();}
-    		case CONFIGURE_RESULT:
-    			if (resultCode == RESULT_OK) {
-    				// handshake complete
-    				mDatabaseManager.setActivity(mPackage, mTrigger, mConfigure, mInterval);}
-    			else {
-    				Toast.makeText(UI.this, "error", Toast.LENGTH_LONG).show();}}}
+    	case CONFIGURE_RESULT:
+    		Log.v("Crondroid.UI", "config result " + resultCode);
+    		switch (resultCode) {
+    		case RESULT_OK:
+    			// handshake complete
+        		Log.v("Crondroid.UI", "handshake ok");
+    			mDatabaseManager.setActivity(mPackage, mTrigger, mConfigure, mInterval);
+    			return;
+    		case RESULT_CANCELED:
+        		Log.v("Crondroid.UI", "handshake canceled");
+        		return;
+    		case 1:
+    			Toast.makeText(UI.this, getString(R.string.error_communication) + mLabel, Toast.LENGTH_LONG).show();
+    			return;}}}
 
     public void listActivities() {
     	/*
@@ -151,4 +204,11 @@ public class UI extends ListActivity {
     				(String) a.loadLabel(mPackageManager),
     				a.loadIcon(mPackageManager)));}
     	setListAdapter(new ActivityListAdapter(this,
-    			activities));}}
+    			activities));}
+    
+
+	public class DaemonConnection implements ServiceConnection {
+		public void onServiceConnected(ComponentName className, IBinder boundService) {
+			mIDaemon = IDaemon.Stub.asInterface((IBinder) boundService);}		
+		public void onServiceDisconnected(ComponentName className) {
+			mIDaemon = null;}}}

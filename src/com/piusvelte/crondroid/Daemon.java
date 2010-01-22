@@ -23,24 +23,27 @@ package com.piusvelte.crondroid;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.os.IBinder;
+import android.util.Log;
 
 public class Daemon extends Service {
 	public static String ACTION_CRON = "com.piusvelte.crondroid.intent.action.CRON";
 	public static String ACTION_TRIGGER = "com.piusvelte.crondroid.intent.action.TRIGGER";
 	public static String ACTION_CONFIGURE = "com.piusvelte.crondroid.intent.action.CONFIGURE";
+	public static String ACTION_INTERVAL = "com.piusvelte.crondroid.intent.action.INTERVAL";
 	private DatabaseManager mDatabaseManager;
-	private AlarmManager mAlarmManager;
-	private PendingIntent mPendingIntent;
-	private int mWakeTime = -1;
+	private int mWakeTime = 0;
+	
+	private final IDaemon.Stub mIDaemon = new IDaemon.Stub() {};
 	
 	@Override
-	public IBinder onBind(Intent arg0) {
-		return null;}
+	public IBinder onBind(Intent intent) {
+		return mIDaemon;}
 	
 	@Override
 	public void onStart(Intent intent, int startId) {
@@ -59,11 +62,15 @@ public class Daemon extends Service {
          * installed before attempting to trigger it this will also
          * provide an opportunity to cleanup activities that we're
          * uninstalled but left configured in crondroid
+         * 
+         * 
+         * NEED TO START OUT ON A COMMON DENOMINATOR TIME
+         * 
+         * 
          */
-		mAlarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-		Intent i = new Intent(this, DaemonManager.class);
-		i.setAction(ACTION_CRON);
-		mPendingIntent = PendingIntent.getBroadcast(this, 0, i, 0);
+        int now = (int) System.currentTimeMillis();
+        now = (int) Math.floor(now / 1000);
+        now *= 1000;
 		mDatabaseManager = new DatabaseManager(this);
 		mDatabaseManager.open();
 		Cursor c = mDatabaseManager.getActivities();
@@ -71,19 +78,35 @@ public class Daemon extends Service {
 			c.moveToFirst();
 			while (!c.isAfterLast()) {
 				int n = c.getInt(c.getColumnIndex(DatabaseManager.ACTIVITY_INTERVAL));
-				if ((mWakeTime == -1) || (mWakeTime > n)) {
-					// next wake up
-					mWakeTime = n;}
-				if ((System.currentTimeMillis() % n) == 0) {
+				Log.v("Crondroid.Daemon", "n " + n);
+				if ((mWakeTime == 0) || (mWakeTime > n)) {
+					// set the next wake time for the alarm
+					mWakeTime = n;
+					Log.v("Crondroid.Daemon", "set wake " + mWakeTime);}
+				Log.v("Crondroid.Daemon", "now % n " + now % n);
+				if ((now % n) == 0) {
 					// need to account for variance in the time
-					String mComponent = c.getString(c.getColumnIndex(DatabaseManager.ACTIVITY_PACKAGE));
-					String mComponentName = c.getString(c.getColumnIndex(DatabaseManager.ACTIVITY_TRIGGER));
-					startActivity(new Intent(ACTION_TRIGGER).setComponent(new ComponentName(mComponent, mComponentName)));}
-				c.moveToNext();}}}
+					String cm = c.getString(c.getColumnIndex(DatabaseManager.ACTIVITY_PACKAGE));
+					String cn = c.getString(c.getColumnIndex(DatabaseManager.ACTIVITY_TRIGGER));
+					Log.v("Crondroid.Daemon", "trigger " + cn);
+					try {
+						startActivity(new Intent(ACTION_TRIGGER).setComponent(new ComponentName(cm, cn)));}
+					catch (ActivityNotFoundException e) {
+						// where's the activity?
+					}}
+				c.moveToNext();}
+			mWakeTime += now;}
+		c.close();}
     
     @Override
     public void onDestroy() {
     	super.onDestroy();
-    	if (mWakeTime != -1) {
-    		mAlarmManager.set(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + mWakeTime, mPendingIntent);}
+    	Log.v("Crondroid.Daemon", "destroy " + mWakeTime);
+    	if (mWakeTime != 0) {
+    		Log.v("Crondroid.Daemon", "set the alarm");
+    		AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+    		Intent i = new Intent(this, DaemonManager.class);
+    		i.setAction(ACTION_CRON);
+    		PendingIntent pi = PendingIntent.getBroadcast(this, 0, i, 0);
+    		am.set(AlarmManager.RTC_WAKEUP, mWakeTime, pi);}
 		WakeLockManager.release();}}

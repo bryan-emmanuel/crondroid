@@ -82,7 +82,7 @@ public class DatabaseManager {
     			+ ACTIVITY_ID + ", "
     			+ ACTIVITY_INTERVAL
     			+ " FROM " + TABLE_ACTIVITY
-    			+ " WHERE " + ACTIVITY_PACKAGE + "=\"" + pkg + "\")", null);
+    			+ " WHERE " + ACTIVITY_PACKAGE + "=\"" + pkg + "\"", null);
     	if (c.getCount() > 0) {
     		c.moveToFirst();
     		i = c.getInt(c.getColumnIndex(ACTIVITY_ID));
@@ -101,7 +101,8 @@ public class DatabaseManager {
     			+ ACTIVITY_ID + ", "
     			+ ACTIVITY_PACKAGE + ", "
     			+ ACTIVITY_TRIGGER + ", "
-    			+ ACTIVITY_INTERVAL + ", ", null);}
+    			+ ACTIVITY_INTERVAL
+    			+ " FROM " + TABLE_ACTIVITY, null);}
     
     public int getInterval(String pkg) {
     	int interval = 0;
