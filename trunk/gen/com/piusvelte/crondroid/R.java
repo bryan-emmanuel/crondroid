@@ -21,21 +21,18 @@ public final class R {
         public static final int activity_icon=0x7f060001;
         public static final int activity_label=0x7f060002;
         public static final int button_donate=0x7f060000;
-        public static final int cancel=0x7f060004;
-        public static final int interval_value=0x7f060003;
     }
     public static final class layout {
         public static final int about=0x7f030000;
         public static final int activity=0x7f030001;
-        public static final int interval=0x7f030002;
-        public static final int intervals=0x7f030003;
-        public static final int main=0x7f030004;
+        public static final int main=0x7f030002;
     }
     public static final class string {
-        public static final int about=0x7f040008;
+        public static final int about=0x7f040009;
         public static final int app_name=0x7f040000;
         public static final int cancel=0x7f040005;
-        public static final int gpl=0x7f040009;
+        public static final int error_communication=0x7f040008;
+        public static final int gpl=0x7f04000a;
         public static final int label_about=0x7f040006;
         public static final int label_donate=0x7f040007;
         public static final int label_interval=0x7f040002;
