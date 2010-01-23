@@ -26,6 +26,7 @@ import android.database.Cursor;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.util.Log;
 
 public class DatabaseManager {
 	private static final String DATABASE_NAME = "crondroid.db";
@@ -77,7 +78,6 @@ public class DatabaseManager {
     public int setActivity(String pkg, String trigger, String configure, int interval) {
     	int i = -1;
 		ContentValues values = new ContentValues();
-		values.put(ACTIVITY_INTERVAL, interval);
     	Cursor c = mDb.rawQuery("SELECT "
     			+ ACTIVITY_ID + ", "
     			+ ACTIVITY_INTERVAL
@@ -87,11 +87,14 @@ public class DatabaseManager {
     		c.moveToFirst();
     		i = c.getInt(c.getColumnIndex(ACTIVITY_ID));
     		if (c.getInt(c.getColumnIndex(ACTIVITY_INTERVAL)) != interval) {
+    			Log.v("Crondroid.DatabaseManager", "set interval " + interval);
+    			values.put(ACTIVITY_INTERVAL, interval);
         		mDb.update(TABLE_ACTIVITY, values, ACTIVITY_ID + "=" + i, null);}}
     	else {
     		values.put(ACTIVITY_PACKAGE, pkg);
     		values.put(ACTIVITY_TRIGGER, trigger);
     		values.put(ACTIVITY_CONFIGURE, configure);
+    		values.put(ACTIVITY_INTERVAL, interval);
     		i = (int) mDb.insert(TABLE_ACTIVITY, null, values);}
     	c.close();
     	return i;}
