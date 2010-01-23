@@ -52,14 +52,12 @@ public class UI extends ListActivity {
 	public static final int ABOUT_ID = Menu.FIRST + 1;
 	public static final int CONFIGURE_RESULT = 1;
 	private DatabaseManager mDatabaseManager;
-	private String mPackage;
-	private String mTrigger;
-	private String mConfigure;
-	private String mLabel;
+	private String mPackage, mTrigger, mConfigure, mLabel;
 	private int mInterval;
 	private AlertDialog mAlertDialog;
 	private DaemonConnection mDaemonConnection;
 	private IDaemon mIDaemon;
+	private boolean mConfiguring = false;
 	
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -105,16 +103,17 @@ public class UI extends ListActivity {
 	@Override
     public void onPause() {
     	super.onPause();
-    	if (mDatabaseManager != null) {
-    		mDatabaseManager.close();
-    		mDatabaseManager = null;}
-    	if (mDaemonConnection != null) {
-        	Log.v("Crondroid.UI", "unbind");
-    		if (mIDaemon != null) {
-    			mIDaemon = null;}
-    		unbindService(mDaemonConnection);
-    		mDaemonConnection = null;}
-    	stopService(new Intent(this, Daemon.class));}
+    	if (!mConfiguring) {
+    		if (mDatabaseManager != null) {
+    			mDatabaseManager.close();
+    			mDatabaseManager = null;}
+    		if (mDaemonConnection != null) {
+    			Log.v("Crondroid.UI", "unbind");
+    			if (mIDaemon != null) {
+    				mIDaemon = null;}
+    			unbindService(mDaemonConnection);
+    			mDaemonConnection = null;}
+    		stopService(new Intent(this, Daemon.class));}}
 
     @Override
     protected void onListItemClick(ListView list, View view, int position, long id) {
@@ -157,9 +156,12 @@ public class UI extends ListActivity {
 		Intent i = new Intent(Daemon.ACTION_CONFIGURE);
 		i.setComponent(new ComponentName(mPackage, mConfigure));
 		i.putExtra(Daemon.ACTION_INTERVAL, mInterval);
+		// this will cause onPause, set mConfiguring to prevent unbinding the service
 		try {
+			mConfiguring = true;
 			startActivityForResult(i, CONFIGURE_RESULT);}
 		catch (ActivityNotFoundException e) {
+			mConfiguring = false;
 			Toast.makeText(UI.this, getString(R.string.error_communication) + mLabel, Toast.LENGTH_LONG).show();}}
     
     @Override
@@ -167,6 +169,7 @@ public class UI extends ListActivity {
     	switch (requestCode) {
     	case CONFIGURE_RESULT:
     		Log.v("Crondroid.UI", "config result " + resultCode);
+    		mConfiguring = false;
     		switch (resultCode) {
     		case RESULT_OK:
     			// handshake complete
