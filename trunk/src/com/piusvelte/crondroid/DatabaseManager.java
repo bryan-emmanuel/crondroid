@@ -26,7 +26,6 @@ import android.database.Cursor;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
-import android.util.Log;
 
 public class DatabaseManager {
 	private static final String DATABASE_NAME = "crondroid.db";
@@ -86,8 +85,10 @@ public class DatabaseManager {
     	if (c.getCount() > 0) {
     		c.moveToFirst();
     		i = c.getInt(c.getColumnIndex(ACTIVITY_ID));
-    		if (c.getInt(c.getColumnIndex(ACTIVITY_INTERVAL)) != interval) {
-    			Log.v("Crondroid.DatabaseManager", "set interval " + interval);
+    		if (interval == 0) {
+    			// no longer managed, delete
+    			mDb.delete(TABLE_ACTIVITY, ACTIVITY_ID + "=" + i, null);}
+    		else if (c.getInt(c.getColumnIndex(ACTIVITY_INTERVAL)) != interval) {
     			values.put(ACTIVITY_INTERVAL, interval);
         		mDb.update(TABLE_ACTIVITY, values, ACTIVITY_ID + "=" + i, null);}}
     	else {
@@ -119,6 +120,20 @@ public class DatabaseManager {
     		interval = c.getInt(c.getColumnIndex(ACTIVITY_INTERVAL));}
     	c.close();
     	return interval;}
-
+    
+    public int getMinInterval() {
+    	int interval = 0;
+    	Cursor c = mDb.rawQuery("SELECT "
+    			+ ACTIVITY_ID + ", "
+    			+ ACTIVITY_INTERVAL
+    			+ " FROM " + TABLE_ACTIVITY
+    			+ " ORDER BY " + ACTIVITY_INTERVAL
+    			+ " ASC LIMIT 1", null);
+    	if (c.getCount() > 0) {
+    		c.moveToFirst();
+    		interval = c.getInt(c.getColumnIndex(ACTIVITY_INTERVAL));}
+    	c.close();
+    	return interval;}
+    
 	public void deleteActivity(String pkg) {
 		mDb.delete(TABLE_ACTIVITY, ACTIVITY_PACKAGE + "=\"" + pkg + "\"", null);}}

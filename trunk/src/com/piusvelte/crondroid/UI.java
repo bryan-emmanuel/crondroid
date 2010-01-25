@@ -113,7 +113,9 @@ public class UI extends ListActivity {
     				mIDaemon = null;}
     			unbindService(mDaemonConnection);
     			mDaemonConnection = null;}
-    		stopService(new Intent(this, Daemon.class));}}
+    		stopService(new Intent(this, Daemon.class));
+			//sendBroadcast(new Intent(this, DaemonManager.class).setAction(Daemon.ACTION_CRON));
+    		}}
 
     @Override
     protected void onListItemClick(ListView list, View view, int position, long id) {
@@ -209,7 +211,6 @@ public class UI extends ListActivity {
     	setListAdapter(new ActivityListAdapter(this,
     			activities));}
     
-
 	public class DaemonConnection implements ServiceConnection {
 		public void onServiceConnected(ComponentName className, IBinder boundService) {
 			mIDaemon = IDaemon.Stub.asInterface((IBinder) boundService);}		
