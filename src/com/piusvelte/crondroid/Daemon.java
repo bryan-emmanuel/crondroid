@@ -37,7 +37,6 @@ public class Daemon extends Service {
 	public static String ACTION_CONFIGURE = "com.piusvelte.crondroid.intent.action.CONFIGURE";
 	public static String ACTION_INTERVAL = "com.piusvelte.crondroid.intent.action.INTERVAL";
 	private DatabaseManager mDatabaseManager;
-	private int mWakeTime = 0;
 	AlarmManager mAlarmManager;
 	PendingIntent mPendingIntent;
 	
@@ -68,10 +67,8 @@ public class Daemon extends Service {
          * provide an opportunity to cleanup activities that we're
          * uninstalled but left configured in crondroid
          */
-        int now = (int) System.currentTimeMillis();
-        now = (int) Math.floor(now / 1000);
-        now *= 1000;
-        Log.v("Crondroid.Daemon", "woke " + now);
+        Log.v("Crondroid.Daemon", "woke up");
+        long now = ((long) Math.floor((System.currentTimeMillis() / 1000))) * 1000;
 		mAlarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
 		Intent i = new Intent(this, DaemonManager.class);
 		i.setAction(ACTION_CRON);
@@ -82,24 +79,17 @@ public class Daemon extends Service {
 		if (c.getCount() > 0) {
 			c.moveToFirst();
 			while (!c.isAfterLast()) {
-				int n = c.getInt(c.getColumnIndex(DatabaseManager.ACTIVITY_INTERVAL));
-				Log.v("Crondroid.Daemon", "n " + n);
-				if ((mWakeTime == 0) || (mWakeTime > n)) {
-					// set the next wake time for the alarm
-					mWakeTime = n;
-					Log.v("Crondroid.Daemon", "init wake " + mWakeTime);}
-				Log.v("Crondroid.Daemon", "now % n " + now % n);
-				if ((now % n) == 0) {
-					// need to account for variance in the time
-					String cm = c.getString(c.getColumnIndex(DatabaseManager.ACTIVITY_PACKAGE));
-					String cn = c.getString(c.getColumnIndex(DatabaseManager.ACTIVITY_TRIGGER));
-					Log.v("Crondroid.Daemon", "trigger " + cn);
-					try {
-						//startActivity(new Intent(ACTION_TRIGGER).setComponent(new ComponentName(cm, cn)).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-						sendBroadcast(new Intent(ACTION_TRIGGER).setComponent(new ComponentName(cm, cn)).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK));}
-					catch (ActivityNotFoundException e) {
-						// where's the activity?
-					}}
+				long n = c.getLong((c.getColumnIndex(DatabaseManager.ACTIVITY_INTERVAL)));
+				if (n > 0) {
+					if ((now % n) == 0) {
+						// need to account for variance in the time
+						String pkg = c.getString(c.getColumnIndex(DatabaseManager.ACTIVITY_PACKAGE));
+						String trigger = c.getString(c.getColumnIndex(DatabaseManager.ACTIVITY_TRIGGER));
+						try {
+							sendBroadcast(new Intent(ACTION_TRIGGER).setComponent(new ComponentName(pkg, trigger)));}
+						catch (ActivityNotFoundException e) {
+							// if the activity doesn't exist, stop managing it
+			    			mDatabaseManager.deleteActivity(pkg);}}}
 				c.moveToNext();}}
 		c.close();
 		stopSelf();}
@@ -107,13 +97,12 @@ public class Daemon extends Service {
     @Override
     public void onDestroy() {
     	super.onDestroy();
-    	if (mWakeTime != 0) {
-    		/*
-    		 * mWakeTime is the interval
-    		 * need to wake at now + interval where now % interval == 0
-    		 */
-        	long now = System.currentTimeMillis();        	
-    		Log.v("Crondroid.Daemon", "is now " + now);
-    		Log.v("Crondroid.Daemon", "wake at " + (mWakeTime + now - (now % mWakeTime)));
-    		mAlarmManager.set(AlarmManager.RTC_WAKEUP, (mWakeTime + now - (now % mWakeTime)), mPendingIntent);}
+    	if (mDatabaseManager != null) {
+    		long interval = mDatabaseManager.getMinInterval();
+    		if (interval != 0) {
+    			// need to wake at now + interval where now % interval == 0
+    			long now = System.currentTimeMillis();
+    			mAlarmManager.set(AlarmManager.RTC_WAKEUP, (interval + (now - (now & interval))), mPendingIntent);}
+    		mDatabaseManager.close();
+    		mDatabaseManager = null;}
 		WakeLockManager.release();}}
