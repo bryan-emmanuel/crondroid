@@ -29,7 +29,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.os.IBinder;
-import android.util.Log;
 
 public class Daemon extends Service {
 	public static String ACTION_CRON = "com.piusvelte.crondroid.intent.action.CRON";
@@ -67,7 +66,6 @@ public class Daemon extends Service {
          * provide an opportunity to cleanup activities that we're
          * uninstalled but left configured in crondroid
          */
-        Log.v("Crondroid.Daemon", "woke up");
         long now = ((long) Math.floor((System.currentTimeMillis() / 1000))) * 1000;
 		mAlarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
 		Intent i = new Intent(this, DaemonManager.class);
@@ -102,7 +100,7 @@ public class Daemon extends Service {
     		if (interval != 0) {
     			// need to wake at now + interval where now % interval == 0
     			long now = System.currentTimeMillis();
-    			mAlarmManager.set(AlarmManager.RTC_WAKEUP, (interval + (now - (now & interval))), mPendingIntent);}
+    			mAlarmManager.set(AlarmManager.RTC_WAKEUP, (interval + (now - (now % interval))), mPendingIntent);}
     		mDatabaseManager.close();
     		mDatabaseManager = null;}
 		WakeLockManager.release();}}
