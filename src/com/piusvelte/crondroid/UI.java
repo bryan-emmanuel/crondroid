@@ -67,6 +67,7 @@ public class UI extends ListActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
     	boolean result = super.onCreateOptionsMenu(menu);
     	menu.add(0, REFRESH_ID, 0, R.string.refresh_list).setIcon(android.R.drawable.ic_menu_info_details);
+    	menu.add(0, ABOUT_ID, 0, R.string.label_about).setIcon(android.R.drawable.ic_menu_more);
     	return result;}
     
     @Override
