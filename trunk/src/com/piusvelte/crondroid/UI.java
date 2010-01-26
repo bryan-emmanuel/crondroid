@@ -38,7 +38,6 @@ import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -96,7 +95,6 @@ public class UI extends ListActivity {
     		mDatabaseManager.open();}
     	listActivities();
     	if (mDaemonConnection == null) {
-        	Log.v("Crondroid.UI", "bind");
     		mDaemonConnection = new DaemonConnection();
     		bindService(new Intent(this, Daemon.class), mDaemonConnection, Context.BIND_AUTO_CREATE);}}
 
@@ -108,28 +106,20 @@ public class UI extends ListActivity {
     			mDatabaseManager.close();
     			mDatabaseManager = null;}
     		if (mDaemonConnection != null) {
-    			Log.v("Crondroid.UI", "unbind");
     			if (mIDaemon != null) {
     				mIDaemon = null;}
     			unbindService(mDaemonConnection);
     			mDaemonConnection = null;}
-    		stopService(new Intent(this, Daemon.class));
-			//sendBroadcast(new Intent(this, DaemonManager.class).setAction(Daemon.ACTION_CRON));
-    		}}
+    		stopService(new Intent(this, Daemon.class));}}
 
     @Override
     protected void onListItemClick(ListView list, View view, int position, long id) {
     	super.onListItemClick(list, view, position, id);
     	mPackage = ((ActivityListItem) list.getItemAtPosition(position)).getPkg();
-    	Log.v("Crondroid.UI", "package " + mPackage);
 		mTrigger = ((ActivityListItem) list.getItemAtPosition(position)).getTrigger();
-    	Log.v("Crondroid.UI", "trigger " + mTrigger);
 		mConfigure = ((ActivityListItem) list.getItemAtPosition(position)).getConfigure();
-    	Log.v("Crondroid.UI", "configure " + mConfigure);
 		mLabel = ((ActivityListItem) list.getItemAtPosition(position)).getLabel();
-    	Log.v("Crondroid.UI", "label " + mLabel);
 		mInterval = mDatabaseManager.getInterval(mPackage);
-    	Log.v("Crondroid.UI", "interval from db " + mInterval);
 		if ((mPackage != "") && (mTrigger != "") && (mConfigure != "")) {
 			String[] intervals = getResources().getStringArray(R.array.interval_values);
 			int which = 0;
@@ -153,7 +143,6 @@ public class UI extends ListActivity {
 			Toast.makeText(UI.this, getString(R.string.error_communication) + mLabel, Toast.LENGTH_LONG).show();}}
     
     private void configure() {
-		Log.v("Crondroid.UI", "interval set " + mInterval);
 		// confirm this with the activity
 		Intent i = new Intent(Daemon.ACTION_CONFIGURE);
 		i.setComponent(new ComponentName(mPackage, mConfigure));
@@ -170,16 +159,15 @@ public class UI extends ListActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
     	switch (requestCode) {
     	case CONFIGURE_RESULT:
-    		Log.v("Crondroid.UI", "config result " + resultCode);
     		mConfiguring = false;
     		switch (resultCode) {
     		case RESULT_OK:
     			// handshake complete
-        		Log.v("Crondroid.UI", "handshake ok");
     			mDatabaseManager.setActivity(mPackage, mTrigger, mConfigure, mInterval);
     			return;
     		case RESULT_CANCELED:
-        		Log.v("Crondroid.UI", "handshake canceled");
+    			// handshake failed, stop managing by default
+    			mDatabaseManager.deleteActivity(mPackage);
         		return;
     		case 1:
     			Toast.makeText(UI.this, getString(R.string.error_communication) + mLabel, Toast.LENGTH_LONG).show();
