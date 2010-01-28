@@ -38,6 +38,7 @@ import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -182,21 +183,29 @@ public class UI extends ListActivity {
     	 * the user through Toast
     	 */
     	PackageManager mPackageManager = getPackageManager();
-    	List<ResolveInfo> results = mPackageManager.queryBroadcastReceivers(new Intent(Daemon.ACTION_TRIGGER), 0);
-    	List<ActivityListItem> activities = new ArrayList<ActivityListItem>(results.size());
-    	for (ResolveInfo a : results) {
-    		String pkg = a.activityInfo.packageName;
+    	List<ResolveInfo> triggers = mPackageManager.queryBroadcastReceivers(new Intent(Daemon.ACTION_TRIGGER), 0);
+    	List<ActivityListItem> activities = new ArrayList<ActivityListItem>(triggers.size());
+    	for (ResolveInfo t : triggers) {
+    		String pkg = t.activityInfo.packageName;
+    		Log.v("Crondroid.UI", "pkg " + pkg);
     		String configure = "";
     		// find the activity used to configure the receiver
-    		List<ResolveInfo> l = mPackageManager.queryIntentActivities(new Intent(Daemon.ACTION_CONFIGURE).setPackage(pkg), 0);
-    		if (l.size() > 0) {
-    			configure = l.get(0).activityInfo.name;}
-    		activities.add(new ActivityListItem(
+    		// setPackage not supported in 1.5
+    		//List<ResolveInfo> configures = mPackageManager.queryIntentActivities(new Intent(Daemon.ACTION_CONFIGURE).setPackage(pkg), 0);
+    		List<ResolveInfo> configures = mPackageManager.queryIntentActivities(new Intent(Daemon.ACTION_CONFIGURE), 0);
+    		for (ResolveInfo c : configures) {
+        		Log.v("Crondroid.UI", "configures " + c.activityInfo.packageName);
+    			if (pkg.equals(c.activityInfo.packageName)) {
+    				configure = c.activityInfo.name;
+            		Log.v("Crondroid.UI", "configure " + configure);
+    				break;}}
+    		if (!configure.equals("")) {
+    			activities.add(new ActivityListItem(
     				pkg,
-    				a.activityInfo.name,
+    				t.activityInfo.name,
     				configure,
-    				(String) a.loadLabel(mPackageManager),
-    				a.loadIcon(mPackageManager)));}
+    				(String) t.loadLabel(mPackageManager),
+    				t.loadIcon(mPackageManager)));}}
     	setListAdapter(new ActivityListAdapter(this,
     			activities));}
     
