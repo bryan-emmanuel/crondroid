@@ -78,16 +78,14 @@ public class Daemon extends Service {
 			c.moveToFirst();
 			while (!c.isAfterLast()) {
 				long n = c.getLong((c.getColumnIndex(DatabaseManager.ACTIVITY_INTERVAL)));
-				if (n > 0) {
-					if ((now % n) == 0) {
-						// need to account for variance in the time
-						String pkg = c.getString(c.getColumnIndex(DatabaseManager.ACTIVITY_PACKAGE));
-						String trigger = c.getString(c.getColumnIndex(DatabaseManager.ACTIVITY_TRIGGER));
-						try {
-							sendBroadcast(new Intent(ACTION_TRIGGER).setComponent(new ComponentName(pkg, trigger)));}
-						catch (ActivityNotFoundException e) {
-							// if the activity doesn't exist, stop managing it
-			    			mDatabaseManager.deleteActivity(pkg);}}}
+				if ((n > 0) &&(now % n) == 0) {
+					String pkg = c.getString(c.getColumnIndex(DatabaseManager.ACTIVITY_PACKAGE));
+					String trigger = c.getString(c.getColumnIndex(DatabaseManager.ACTIVITY_TRIGGER));
+					try {
+						sendBroadcast(new Intent(ACTION_TRIGGER).setComponent(new ComponentName(pkg, trigger)));}
+					catch (ActivityNotFoundException e) {
+						// if the activity doesn't exist, stop managing it
+		    			mDatabaseManager.deleteActivity(pkg);}}
 				c.moveToNext();}}
 		c.close();
 		stopSelf();}
