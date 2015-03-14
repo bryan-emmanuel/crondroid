@@ -1,0 +1,1 @@
+Crondroid allows central management of services that update on an interval. Synchronizing those updates means waking the device less often and conserving more battery power. An application must support crondroid in order to be managed.
